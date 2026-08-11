@@ -1,0 +1,8 @@
+.env
+accounts.json
+accounts_to_login.txt
+__pycache__/
+*.pyc
+logs/
+.venv/
+*.tmp

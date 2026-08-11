@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Peezy2API 控制台</title>
+  <style>
+    :root {
+      --bg: #0f1115; --panel: #171a21; --panel2: #1e2230; --line: #2a2f3d;
+      --text: #e6e9f0; --muted: #8b93a7; --acc: #4ade80; --warn: #fbbf24;
+      --err: #f87171; --blue: #60a5fa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font: 14px/1.6 "Segoe UI", "Microsoft YaHei", sans-serif; }
+    header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 2px solid var(--line); }
+    header h1 { font-size: 15px; letter-spacing: 2px; text-transform: uppercase; }
+    .status-pill { padding: 5px 12px; border: 1px solid var(--line); border-radius: 20px; font-size: 12px; }
+    .status-pill.running { color: var(--acc); border-color: var(--acc); }
+    .status-pill.idle { color: var(--muted); }
+    .wrap { display: grid; grid-template-columns: 380px 1fr; gap: 16px; padding: 16px 20px; align-items: start; }
+    @media (max-width: 980px) { .wrap { grid-template-columns: 1fr; } }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+    .panel + .panel { margin-top: 16px; }
+    .panel h2 { font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+    .field { margin-bottom: 12px; }
+    .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+    input, select, textarea {
+      width: 100%; background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+      border-radius: 6px; padding: 8px 10px; font-size: 13px; outline: none;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--blue); }
+    textarea { font-family: Consolas, monospace; resize: vertical; min-height: 110px; }
+    .row { display: flex; gap: 10px; }
+    .row .field { flex: 1; }
+    button {
+      background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px;
+      padding: 8px 14px; font-size: 13px; cursor: pointer;
+    }
+    button:hover { border-color: var(--blue); }
+    button.primary { background: #1c3a2b; border-color: #2f6e4f; color: var(--acc); }
+    button.primary:hover { border-color: var(--acc); }
+    button.danger { background: #3a1f22; border-color: #7a2f35; color: var(--err); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .progress { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+    .progress .box { background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 8px; text-align: center; }
+    .progress .num { font-size: 20px; font-weight: 700; }
+    .progress .ok { color: var(--acc); } .progress .fail { color: var(--err); } .progress .skip { color: var(--warn); } .progress .total { color: var(--blue); }
+    .progress .cap { font-size: 11px; color: var(--muted); }
+    #logs { background: #0b0d11; border: 1px solid var(--line); border-radius: 6px; padding: 10px; height: 260px; overflow: auto; font-family: Consolas, monospace; font-size: 12px; line-height: 1.7; }
+    #logs .log-warn { color: var(--warn); } #logs .log-err { color: var(--err); } #logs .log-info { color: var(--muted); }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { border-bottom: 1px solid var(--line); padding: 7px 8px; text-align: left; word-break: break-all; }
+    th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+    .key { font-family: Consolas, monospace; font-size: 11px; }
+    .badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11px; }
+    .badge.ok { background: rgba(74,222,128,.15); color: var(--acc); }
+    .badge.fail { background: rgba(248,113,113,.15); color: var(--err); }
+    .muted { color: var(--muted); }
+    #toast { position: fixed; right: 20px; bottom: 20px; background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 10px 16px; display: none; max-width: 360px; }
+    .copy { cursor: pointer; border: none; background: transparent; color: var(--blue); padding: 0 4px; }
+    .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    code { background: var(--panel2); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Peezy2API 控制台</h1>
+    <div style="display:flex;gap:10px;align-items:center">
+      <span id="pill" class="status-pill idle">空闲</span>
+      <button id="btnStart" class="primary" onclick="startRun()">开始运行</button>
+      <button id="btnStop" class="danger" onclick="stopRun()" disabled>停止</button>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div>
+      <div class="panel">
+        <h2>运行状态</h2>
+        <div class="progress">
+          <div class="box"><div id="nSuccess" class="num ok">0</div><div class="cap">成功</div></div>
+          <div class="box"><div id="nFailed" class="num fail">0</div><div class="cap">失败</div></div>
+          <div class="box"><div id="nSkipped" class="num skip">0</div><div class="cap">跳过</div></div>
+          <div class="box"><div id="nTotal" class="num total">0</div><div class="cap">目标</div></div>
+        </div>
+        <div class="field">
+          <label for="count">目标数量（本次处理几个账号）</label>
+          <input id="count" type="number" min="1" step="1" value="1" />
+          <div class="hint">注册模式 = 新注册几个账号；登录模式 = 处理账号文件前 N 个</div>
+        </div>
+        <div class="field">
+          <label for="mode">运行模式</label>
+          <select id="mode">
+            <option value="register">注册新账号</option>
+            <option value="login">登录已有账号</option>
+          </select>
+          <div class="hint">login 模式读取 account_file（每行 email====password）</div>
+        </div>
+        <div class="field">
+          <label>账号文件（login 模式）</label>
+          <input id="account_file" value="accounts_to_login.txt" />
+        </div>
+        <div class="field">
+          <label>结果输出文件</label>
+          <input id="output" value="accounts.json" />
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>打码平台（CaptchaRun）</h2>
+        <div class="field">
+          <label for="captcha_token">打码 API 令牌（Token）</label>
+          <input id="captcha_token" placeholder="登录 captcha-run.com 后台「用户信息」页获取" />
+          <div class="hint">
+            还没有账号？<a href="https://captcha-run.com/sso?inviter=ce5f1e67-e364-40b9-9593-6be2f36d2108"
+              target="_blank" rel="noopener" style="color:var(--acc)">点此注册（邀请）</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>临时邮箱 API</h2>
+        <div class="field">
+          <label for="mail_api_base">邮箱 API 地址</label>
+          <input id="mail_api_base" placeholder="例如 https://apimail.你的域名.top" />
+          <div class="hint">cloudflare_temp_email 兼容的 Worker 邮箱服务</div>
+        </div>
+        <div class="field">
+          <label for="mail_domains">收信域名（逗号分隔，留空由 Worker 决定）</label>
+          <input id="mail_domains" placeholder="例如 mail.example.com" />
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>sub2api 设置</h2>
+        <div class="field">
+          <label for="sub2api_api_base">管理 API 地址（不带 /api/v1）</label>
+          <input id="sub2api_api_base" placeholder="例如 https://sub2api.你的域名.top" />
+        </div>
+        <div class="field">
+          <label for="sub2api_api_key">Admin API Key</label>
+          <input id="sub2api_api_key" placeholder="sub2api 后台生成的 Admin API Key" />
+          <div class="hint">保存后会写入 .env，不会提交到代码</div>
+        </div>
+        <div class="field">
+          <label>目标分组</label>
+          <div class="row">
+            <select id="group_id" style="flex:2"><option value="">-- 请加载分组 --</option></select>
+            <button onclick="loadGroups()">刷新</button>
+          </div>
+          <div class="hint">选择已存在的分组；或在下方填名称让程序自动创建</div>
+        </div>
+        <div class="field">
+          <label>自动创建/匹配分组名（留空则用上方分组）</label>
+          <input id="group_name" placeholder="例如 peezy" />
+        </div>
+        <div class="field">
+          <label>并发设置</label>
+          <div class="row">
+            <div class="field"><input id="workers" type="number" min="1" value="1" /><div class="hint">注册并发（线程数）</div></div>
+            <div class="field"><input id="concurrency" type="number" min="1" value="1" /><div class="hint">sub2api 账号并发</div></div>
+          </div>
+        </div>
+        <div class="field">
+          <label>模型映射（JSON，格式 {"请求模型":"上游模型"}）</label>
+          <textarea id="model_mapping" spellcheck="false"></textarea>
+          <div class="hint">留空则使用默认映射（auto + PEEZY_MODELS 原样映射）</div>
+          <div style="margin-top:8px"><button onclick="fillDefaultMapping()">填入默认映射</button></div>
+        </div>
+        <div class="field">
+          <label>网络与推送</label>
+          <div class="row" style="align-items:center">
+            <label style="display:flex;align-items:center;gap:6px;flex:1"><input id="direct" type="checkbox" /> 直连(绕过代理)</label>
+            <label style="display:flex;align-items:center;gap:6px;flex:1"><input id="auto_push" type="checkbox" checked /> 自动推送 sub2api</label>
+          </div>
+          <input id="proxy" style="margin-top:8px" placeholder="HTTP 代理，如 http://127.0.0.1:7897（留空用系统代理）" />
+        </div>
+        <div style="display:flex;gap:10px;margin-top:14px">
+          <button id="btnSave" class="primary" style="flex:1" onclick="saveConfig()">保存设置</button>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2>运行日志</h2>
+        <div id="logs"></div>
+      </div>
+      <div class="panel">
+        <h2>账号结果 <span id="acctCount" class="muted"></span></h2>
+        <div style="overflow:auto;max-height:420px">
+          <table>
+            <thead><tr><th>状态</th><th>邮箱</th><th>API Key</th><th>sub2api</th><th>分组</th><th>时间</th></tr></thead>
+            <tbody id="accountsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    let lastLogCount = 0;
+
+    async function api(path, opts, timeoutMs) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs || 30000);
+      try {
+        const resp = await fetch(path, { ...(opts || {}), signal: controller.signal });
+        let data = {};
+        try { data = await resp.json(); } catch (e) {}
+        if (!resp.ok || data.ok === false) throw new Error(data.error || data.message || ("HTTP " + resp.status));
+        return data;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    function toast(msg, ms) {
+      const el = document.getElementById("toast");
+      el.textContent = msg;
+      el.style.display = "block";
+      clearTimeout(el._t);
+      el._t = setTimeout(() => el.style.display = "none", ms || 2500);
+    }
+
+    async function loadConfig() {
+      try {
+        const c = await api("/api/config");
+        document.getElementById("captcha_token").value = c.captcha_token || "";
+        document.getElementById("sub2api_api_base").value = c.sub2api_api_base || "";
+        document.getElementById("sub2api_api_key").value = c.sub2api_api_key || "";
+        document.getElementById("mail_api_base").value = c.mail_api_base || "";
+        document.getElementById("mail_domains").value = c.mail_domains || "";
+        document.getElementById("group_id").dataset.cur = c.group_id || "";
+        document.getElementById("group_name").value = c.group_name || "";
+        document.getElementById("workers").value = c.workers;
+        document.getElementById("concurrency").value = c.concurrency;
+        document.getElementById("model_mapping").value = JSON.stringify(c.model_mapping, null, 2);
+        document.getElementById("direct").checked = !!c.direct;
+        document.getElementById("auto_push").checked = !!c.auto_push;
+        document.getElementById("proxy").value = c.proxy || "";
+        document.getElementById("count").value = c.count || 1;
+        document.getElementById("mode").value = c.mode === "login" ? "login" : "register";
+        document.getElementById("account_file").value = c.account_file || "accounts_to_login.txt";
+        document.getElementById("output").value = c.output || "accounts.json";
+      } catch (e) { toast("加载配置失败: " + e.message); }
+    }
+
+    async function loadGroups() {
+      try {
+        const d = await api("/api/groups");
+        const sel = document.getElementById("group_id");
+        const cur = d.current_group_id;
+        sel.innerHTML = '<option value="">-- 不绑定分组 --</option>' +
+          d.groups.map(g =>
+            `<option value="${g.id}" ${String(g.id) === String(cur) ? "selected" : ""}>${g.name || g.id} (${g.platform}, 账号 ${g.account_count ?? "?"})</option>`
+          ).join("");
+        if (cur && ![...sel.options].some(o => o.value === String(cur))) {
+          sel.insertAdjacentHTML("beforeend", `<option value="${cur}" selected>分组 #${cur}</option>`);
+        }
+        toast("已加载 " + d.groups.length + " 个分组");
+      } catch (e) { toast("加载分组失败: " + e.message); }
+    }
+
+    function fillDefaultMapping() {
+      const el = document.getElementById("model_mapping");
+      try {
+        const cur = JSON.parse(el.value || "{}");
+        const def = { auto: "auto" };
+        const models = ["kimi-k3", "grok-4.5"];
+        models.forEach(m => def[m] = m);
+        el.value = JSON.stringify({ ...def, ...cur }, null, 2);
+      } catch (e) {
+        el.value = JSON.stringify({ auto: "auto", "kimi-k3": "kimi-k3", "grok-4.5": "grok-4.5" }, null, 2);
+      }
+    }
+
+    async function saveConfig() {
+      const btn = document.getElementById("btnSave");
+      btn.disabled = true;
+      try {
+        let mapping = null;
+        const raw = document.getElementById("model_mapping").value.trim();
+        if (raw) {
+          mapping = JSON.parse(raw);
+          if (typeof mapping !== "object" || Array.isArray(mapping)) throw new Error("模型映射必须是 JSON 对象");
+        }
+        await api("/api/config", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            captcha_token: document.getElementById("captcha_token").value,
+            sub2api_api_base: document.getElementById("sub2api_api_base").value,
+            sub2api_api_key: document.getElementById("sub2api_api_key").value,
+            mail_api_base: document.getElementById("mail_api_base").value,
+            mail_domains: document.getElementById("mail_domains").value,
+            group_id: document.getElementById("group_id").value,
+            group_name: document.getElementById("group_name").value,
+            workers: parseInt(document.getElementById("workers").value) || 1,
+            concurrency: parseInt(document.getElementById("concurrency").value) || 1,
+            model_mapping: mapping,
+            direct: document.getElementById("direct").checked,
+            auto_push: document.getElementById("auto_push").checked,
+            proxy: document.getElementById("proxy").value,
+            count: parseInt(document.getElementById("count").value) || 1,
+            mode: document.getElementById("mode").value,
+            account_file: document.getElementById("account_file").value,
+            output: document.getElementById("output").value,
+          }),
+        });
+        toast("设置已保存");
+      } catch (e) { toast("保存失败: " + e.message); }
+      finally { btn.disabled = false; }
+    }
+
+    async function startRun() {
+      const btn = document.getElementById("btnStart");
+      btn.disabled = true;
+      try {
+        let mapping = null;
+        const raw = document.getElementById("model_mapping").value.trim();
+        if (raw) mapping = JSON.parse(raw);
+        await api("/api/run", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: document.getElementById("mode").value,
+            count: parseInt(document.getElementById("count").value) || 1,
+            workers: parseInt(document.getElementById("workers").value) || 1,
+            concurrency: parseInt(document.getElementById("concurrency").value) || 1,
+            model_mapping: mapping,
+            group_id: document.getElementById("group_id").value,
+            group_name: document.getElementById("group_name").value,
+            direct: document.getElementById("direct").checked,
+            auto_push: document.getElementById("auto_push").checked,
+            proxy: document.getElementById("proxy").value,
+            account_file: document.getElementById("account_file").value,
+            output: document.getElementById("output").value,
+          }),
+        });
+        toast("任务已启动");
+      } catch (e) { toast("启动失败: " + e.message); }
+      finally { btn.disabled = false; }
+    }
+
+    async function stopRun() {
+      try { await api("/api/stop", { method: "POST" }); toast("已请求停止"); }
+      catch (e) { toast("停止失败: " + e.message); }
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? "").replace(/[&<>"']/g, c => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[c]));
+    }
+
+    function copyText(text) {
+      navigator.clipboard.writeText(text).then(() => toast("已复制 API Key"), () => toast("复制失败"));
+    }
+
+    async function refreshStatus() {
+      try {
+        const s = await api("/api/status");
+        const running = !!s.running;
+        const pill = document.getElementById("pill");
+        pill.className = "status-pill " + (running ? "running" : "idle");
+        pill.textContent = running ? "运行中 (" + (s.mode || "") + ")" : (s.finished_at ? "已结束" : "空闲");
+        document.getElementById("btnStart").disabled = running;
+        document.getElementById("btnStop").disabled = !running;
+        document.getElementById("nSuccess").textContent = s.success || 0;
+        document.getElementById("nFailed").textContent = s.failed || 0;
+        document.getElementById("nSkipped").textContent = s.skipped || 0;
+        document.getElementById("nTotal").textContent = s.total || 0;
+
+        const logs = s.logs || [];
+        if (logs.length !== lastLogCount) {
+          lastLogCount = logs.length;
+          const box = document.getElementById("logs");
+          box.innerHTML = logs.map(l => {
+            const cls = l.includes("[WARNING]") || l.includes("[ERROR]") ? (l.includes("[ERROR]") ? "log-err" : "log-warn") : "log-info";
+            return `<div class="${cls}">${escapeHtml(l)}</div>`;
+          }).join("");
+          box.scrollTop = box.scrollHeight;
+        }
+      } catch (e) { /* 忽略瞬时错误 */ }
+    }
+
+    async function refreshAccounts() {
+      try {
+        const d = await api("/api/accounts");
+        const rows = d.accounts || [];
+        document.getElementById("acctCount").textContent = "共 " + rows.length + " 条";
+        document.getElementById("accountsBody").innerHTML = rows.slice().reverse().map(r => {
+          const status = r.status === "success" ? "ok" : (r.status === "skipped" ? "skip" : "fail");
+          const label = r.status === "success" ? "OK" : (r.status === "skipped" ? "跳过" : "失败");
+          const key = r.api_key || "";
+          return `<tr>
+            <td><span class="badge ${status}">${label}</span></td>
+            <td>${escapeHtml(r.email || "-")}</td>
+            <td class="key">${escapeHtml(key.slice(0, 18))}…<button class="copy" onclick="copyText('${escapeHtml(key)}')">复制</button></td>
+            <td>${r.sub2api_account_id ? "id=" + r.sub2api_account_id + (r.updated ? " (更新)" : "") : (r.pushed === false ? "未推送" : "-")}</td>
+            <td>${r.group_id ? r.group_id : "-"}</td>
+            <td>${escapeHtml((r.created_at || "").slice(5, 16).replace("T", " "))}</td>
+          </tr>`;
+        }).join("") || '<tr><td colspan="6" class="muted">暂无结果，点击「开始运行」</td></tr>';
+      } catch (e) { /* 忽略 */ }
+    }
+
+    loadConfig().then(loadGroups);
+    refreshStatus(); refreshAccounts();
+    setInterval(refreshStatus, 2000);
+    setInterval(refreshAccounts, 5000);
+  </script>
+</body>
+</html>
