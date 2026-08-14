@@ -4,6 +4,15 @@
 
 纯 Python 命令行 + WebUI，无浏览器依赖。**所有密钥与服务地址均需自行填写**，代码中不包含任何真实凭据。
 
+## 参考项目
+
+本项目参考了以下开源项目（自动化思路与基础设施方案）：
+
+- [Sliverkiss](https://github.com/Sliverkiss) 系列 —— [workbuddy2api](https://github.com/Sliverkiss/workbuddy2api) / [traework2api](https://github.com/Sliverkiss/traework2api) / [qoderwork2api](https://github.com/Sliverkiss/qoderwork2api)：账号生命周期自动化与 OpenAI 兼容上游的总体思路
+- [cloudflare_temp_email](https://github.com/dreamhunter2333/cloudflare_temp_email)（[Dream Hunter](https://github.com/dreamhunter2333)）：临时邮箱 Worker 方案（本项目兼容其 API）
+
+感谢原作者的开源与优秀设计。
+
 ## 流程
 
 ```text
