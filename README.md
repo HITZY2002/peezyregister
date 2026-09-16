@@ -4,6 +4,9 @@ PeezyRegister 是一个用于处理 [Peezy（p0.systems）](https://peezy.p0.sys
 
 项目同时提供 CLI 与 WebUI，两种入口共用同一套配置与执行逻辑。
 
+> [!NOTE]
+> 本项目随缘维护，不保证持续或及时更新。若后续 Peezy 的注册/登录流程、接口或相关网址发生变化导致项目失效，请 Fork 本仓库后自行修改并适配最新流程。
+
 ## 功能
 
 - Peezy 邮箱注册与已有账号登录
